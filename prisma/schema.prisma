@@ -9,81 +9,88 @@ generator client {
 
 // 1. Tabel USER
 model User {
-  id            String         @id @default(cuid())
-  name          String
-  email         String         @unique
-  password      String
-  role          String         @default("EMPLOYEE") 
-  department    String?
-  image         String?      
-  
-  scheduleType  String?      
+  id         String  @id @default(cuid())
+  name       String
+  email      String  @unique
+  password   String
+  role       String  @default("EMPLOYEE")
+  department String?
+  image      String?
 
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  
+  scheduleType String?
+
+  workType       String  @default("6HK")
+  defaultShiftId String?
+  defaultShift   Shift?  @relation(fields: [defaultShiftId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   // Relasi
-  attendances   Attendance[]
-  leaves        Leave[]
-  schedules     UserSchedule[] 
-  permissions  Permission[]
+  attendances Attendance[]
+  leaves      Leave[]
+  schedules   UserSchedule[]
+  permissions Permission[]
 }
 
 // 2. Tabel Master Shift
 model Shift {
-  id          String         @id @default(cuid())
-  name        String       
-  
-  startIn     String       // Batas awal absen (07:15)
-  endIn       String       // Batas toleransi (07:30)
-  
-  startOut    String       // Batas awal pulang (16:00)
-  endOut      String       // Batas akhir pulang (17:00)
-  
-  workDays    String?      // Untuk fixed: "1,2,3,4,5" (Senin-Jumat)
-  
+  id   String @id @default(cuid())
+  name String @unique
+
+  startIn String // Batas awal absen (07:15)
+  endIn   String // Batas toleransi (07:30)
+
+  startOut String // Batas awal pulang (16:00)
+  endOut   String // Batas akhir pulang (17:00)
+
+  tolerance Int @default(0)
+
+  workDays String? // Untuk fixed: "1,2,3,4,5" (Senin-Jumat)
+
   attendances Attendance[]
   schedules   UserSchedule[] // Relasi ke plotting harian
+  users       User[]
 }
 
 // 3. Tabel Plotting Jadwal (PENTING untuk 2-2-2-2)
 model UserSchedule {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  shiftId   String
-  shift     Shift    @relation(fields: [shiftId], references: [id])
-  
-  date      DateTime // Tanggal tugas (Contoh: 2026-04-23)
+  id      String @id @default(cuid())
+  userId  String
+  user    User   @relation(fields: [userId], references: [id])
+  shiftId String
+  shift   Shift  @relation(fields: [shiftId], references: [id])
+
+  date DateTime // Tanggal tugas (Contoh: 2026-04-23)
 
   createdAt DateTime @default(now())
 
   // Satu user hanya boleh punya satu shift di hari yang sama
-  @@unique([userId, date]) 
+  @@unique([userId, date])
   @@index([userId])
   @@index([shiftId])
 }
 
 // 4. Tabel Absensi (Mendukung Lintas Hari)
 model Attendance {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id])
-  
-  shiftId    String?   
-  shift      Shift?    @relation(fields: [shiftId], references: [id])
-  
-  checkIn    DateTime  @default(now())
-  checkOut   DateTime?
-  
-  selfieIn   String?   @db.Text
-  selfieOut  String?   @db.Text
-  
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  shiftId String?
+  shift   Shift?  @relation(fields: [shiftId], references: [id])
+
+  checkIn  DateTime  @default(now())
+  checkOut DateTime?
+
+  selfieIn  String? @db.Text
+  selfieOut String? @db.Text
+
   // Status otomatis: "ONTIME" atau "LATE"
-  status     String    @default("ONTIME") 
-  
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  status String @default("ONTIME")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([shiftId])
@@ -91,23 +98,23 @@ model Attendance {
 
 // 5. Tabel Pengajuan Cuti/Izin
 model Leave {
-  id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  startDate   DateTime
-  endDate     DateTime
-  type        String      // SICK, PERMISSION, LEAVE
-  reason      String      @db.Text
-  status      String      @default("PENDING") 
-  attachment  String?     @db.Text
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  startDate  DateTime
+  endDate    DateTime
+  type       String // SICK, PERMISSION, LEAVE
+  reason     String   @db.Text
+  status     String   @default("PENDING")
+  attachment String?  @db.Text
 }
 
 // 6. Tabel Pengaturan Sistem Global
 model SystemSetting {
-  id                Int      @id @default(1)
-  isSelfieRequired  Boolean  @default(true)
-  allowedIpAddress  String?  
-  updatedAt         DateTime @updatedAt
+  id               Int      @id @default(1)
+  isSelfieRequired Boolean  @default(true)
+  allowedIpAddress String?
+  updatedAt        DateTime @updatedAt
 }
 
 // 7. Tabel Izin Sistem Global
@@ -115,9 +122,9 @@ model Permission {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  type      String   // SAKIT, IZIN
+  type      String // SAKIT, IZIN
   reason    String
-  image     String?  @db.LongText 
+  image     String?  @db.LongText
   date      DateTime @default(now())
   status    String   @default("PENDING")
   createdAt DateTime @default(now())

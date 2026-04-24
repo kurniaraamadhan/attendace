@@ -9,7 +9,8 @@ import {
   ClipboardCheck, 
   Settings, 
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Clock
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       group: "Manajemen",
       items: [
         { name: "Data Karyawan", href: "/admin/employees", icon: Users },
+        { name: "Shift Master", href: "/admin/shifts", icon: Clock },
         { name: "Pengajuan Izin", href: "/admin/permissions", icon: ClipboardCheck },
       ]
     },

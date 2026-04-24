@@ -1,53 +1,99 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Users, UserPlus, Trash2, Mail, Lock, User as UserIcon, ShieldAlert } from "lucide-react";
+import { Users, UserPlus, Trash2, Mail, Lock, User as UserIcon, Clock, Briefcase, Edit2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 export default function EmployeeManagement() {
   const [employees, setEmployees] = useState<any[]>([]);
+  const [shifts, setShifts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: "", email: "", password: "" });
+  
+  // State form ditambahkan field 'id' untuk keperluan Edit
+  const [formData, setFormData] = useState({ 
+    id: "", 
+    name: "", 
+    email: "", 
+    password: "", 
+    workType: "6HK", 
+    defaultShiftId: "" 
+  });
 
-  const fetchEmployees = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/employees");
-      const data = await res.json();
-      setEmployees(Array.isArray(data) ? data : []);
+      const [resEmp, resShift] = await Promise.all([
+        fetch("/api/admin/employees"),
+        fetch("/api/admin/shifts")
+      ]);
+      const dataEmp = await resEmp.json();
+      const dataShift = await resShift.json();
+      setEmployees(Array.isArray(dataEmp) ? dataEmp : []);
+      setShifts(Array.isArray(dataShift) ? dataShift : []);
     } catch (err) { console.error(err); }
     setLoading(false);
   };
 
-  useEffect(() => { fetchEmployees(); }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 1. Ambil nilai terbaru langsung dari Dropdown (DOM)
+    const selectElement = document.getElementById("workTypeSelect") as HTMLSelectElement;
+    const currentWorkType = selectElement ? selectElement.value : formData.workType;
+
+    // 2. Bungkus ke payload baru
+    const payloadData = {
+      ...formData,
+      workType: (document.getElementById("workTypeSelect") as HTMLSelectElement).value 
+    };
+
+    console.log("LOG AKHIR SEBELUM FETCH:", payloadData);
+
+    const method = formData.id ? "PATCH" : "POST";
+  
     try {
       const res = await fetch("/api/admin/employees", {
-        method: "POST",
+        method: method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        // PERBAIKAN DISINI: Harus kirim payloadData, jangan formData!
+        body: JSON.stringify(payloadData), 
       });
+
       if (res.ok) {
         setShowModal(false);
-        setFormData({ name: "", email: "", password: "" });
-        fetchEmployees();
+        // Reset form
+        setFormData({ id: "", name: "", email: "", password: "", workType: "6HK", defaultShiftId: "" });
+        fetchData();
       } else {
         const err = await res.json();
         alert(err.error);
       }
-    } catch (err) { alert("Gagal menyambung ke server"); }
+    } catch (err) {
+      alert("Gagal menyambung ke server");
+    }
+  };
+
+  const handleEdit = (emp: any) => {
+    setFormData({
+      id: emp.id,
+      name: emp.name,
+      email: emp.email,
+      password: emp.password, // Raw password untuk kemudahan admin
+      workType: emp.workType || "6HK",
+      defaultShiftId: emp.defaultShiftId || ""
+    });
+    setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Hapus karyawan ini? Semua data absen terkait mungkin akan hilang.")) return;
+    if (!confirm("Hapus karyawan ini?")) return;
     try {
       const res = await fetch(`/api/admin/employees?id=${id}`, { method: "DELETE" });
-      if (res.ok) fetchEmployees();
-      else alert("Gagal menghapus user");
+      if (res.ok) fetchData();
     } catch (err) { console.error(err); }
   };
 
@@ -56,22 +102,27 @@ export default function EmployeeManagement() {
       <header className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">Employee Data</h2>
-          <p className="text-slate-500 text-sm font-medium">Kelola akses dan informasi akun karyawan.</p>
+          <p className="text-slate-500 text-sm font-medium">Manajemen klasifikasi kerja & akses.</p>
         </div>
-        <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex gap-2 py-6 px-6 transition-all shadow-lg shadow-blue-600/20">
+        <Button 
+          onClick={() => {
+            setFormData({ id: "", name: "", email: "", password: "", workType: "6HK", defaultShiftId: "" });
+            setShowModal(true);
+          }} 
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-2xl flex gap-2 py-6 px-6 shadow-lg shadow-blue-600/20"
+        >
           <UserPlus size={20} /> <span className="font-bold uppercase text-xs tracking-widest">Tambah Karyawan</span>
         </Button>
       </header>
 
-      <Card className="bg-slate-900/40 border-white/5 backdrop-blur-md overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
+      <Card className="bg-slate-900/40 border-white/5 backdrop-blur-md rounded-[2.5rem] border-none shadow-2xl overflow-hidden">
         <CardContent className="p-0">
           <table className="w-full text-left">
             <thead>
               <tr className="border-b border-white/5 text-[10px] text-slate-500 uppercase font-black tracking-[0.2em]">
                 <th className="p-6 pl-10">Karyawan</th>
                 <th className="p-6">Email</th>
-                <th className="p-6 text-center">Password (Raw)</th>
-                <th className="p-6 text-center">Tanggal Daftar</th>
+                <th className="p-6 text-center">Tipe Kerja</th>
                 <th className="p-6 text-center">Aksi</th>
               </tr>
             </thead>
@@ -80,21 +131,33 @@ export default function EmployeeManagement() {
                 <tr key={emp.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-all">
                   <td className="p-6 pl-10">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-400/20 font-black">
-                        {emp.name.charAt(0).toUpperCase()}
+                      <div className="w-10 h-10 rounded-full bg-blue-600/20 flex items-center justify-center text-blue-400 border border-blue-400/20 font-black uppercase">
+                        {emp.name.charAt(0)}
                       </div>
-                      <span className="font-bold text-white uppercase tracking-tight">{emp.name}</span>
+                      <div>
+                        <p className="font-bold text-white uppercase tracking-tight">{emp.name}</p>
+                        <p className="text-[9px] text-slate-500 font-black tracking-widest uppercase italic">
+                          {emp.defaultShift?.name || "Shift Belum Diatur"}
+                        </p>
+                      </div>
                     </div>
                   </td>
                   <td className="p-6 text-slate-400">{emp.email}</td>
-                  <td className="p-6 text-center font-mono opacity-50">{emp.password}</td>
-                  <td className="p-6 text-center text-xs opacity-50">
-                    {new Date(emp.createdAt).toLocaleDateString('id-ID')}
+                  <td className="p-6 text-center">
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black ${emp.workType === '5HK' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
+                      {emp.workType}
+                    </span>
                   </td>
                   <td className="p-6 text-center">
-                    <Button onClick={() => handleDelete(emp.id)} variant="ghost" className="text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">
-                      <Trash2 size={18} />
-                    </Button>
+                    <div className="flex justify-center gap-2">
+                      {/* TOMBOL EDIT DITAMBAHKAN DISINI */}
+                      <Button onClick={() => handleEdit(emp)} variant="ghost" className="text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all">
+                        <Edit2 size={18} />
+                      </Button>
+                      <Button onClick={() => handleDelete(emp.id)} variant="ghost" className="text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all">
+                        <Trash2 size={18} />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -104,57 +167,68 @@ export default function EmployeeManagement() {
         </CardContent>
       </Card>
 
-      {/* Modal Tambah Karyawan */}
+      {/* Modal Form */}
       {showModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
-          <Card className="w-full max-w-md bg-[#0f172a] border-white/10 rounded-[3rem] shadow-2xl overflow-hidden">
+          <Card className="w-full max-w-md bg-[#0f172a] border-white/10 rounded-[3rem] shadow-2xl overflow-hidden border-none">
             <CardHeader className="p-10 pb-4 flex flex-row justify-between items-center bg-white/[0.02]">
-              <CardTitle className="text-2xl font-black text-white italic tracking-tighter uppercase">New Employee</CardTitle>
+              <CardTitle className="text-2xl font-black text-white italic tracking-tighter uppercase">
+                {formData.id ? "Edit Personnel" : "New Personnel"}
+              </CardTitle>
               <Button onClick={() => setShowModal(false)} variant="ghost" className="text-slate-500 text-3xl font-light hover:bg-transparent hover:text-white">×</Button>
             </CardHeader>
             <CardContent className="p-10 pt-4">
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Nama Lengkap</label>
                   <div className="relative group">
-                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={18} />
-                    <input 
-                      required 
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
-                      placeholder="Contoh: Budi Setiawan"
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    />
+                    <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                    <input required className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
+                      placeholder="Nama Karyawan" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="workTypeSelect" className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">
+                      Tipe Kerja
+                    </label>
+                    <select 
+                      id="workTypeSelect"
+                      name="workType"
+                      value={formData.workType} 
+                      onChange={(e) => {
+                        const valueBaru = e.target.value;
+                        console.log("USER KLIK DROPDOWN:", valueBaru);
+                        setFormData({ ...formData, workType: valueBaru });
+                      }}
+                      className="w-full bg-[#1e293b] border border-white/10 rounded-2xl py-4 px-5 text-white outline-none focus:ring-2 focus:ring-blue-600 appearance-none cursor-pointer"
+                    >
+                      <option value="6HK" className="bg-slate-900">6 Hari Kerja (Sen-Sab)</option>
+                      <option value="5HK" className="bg-slate-900">5 Hari Kerja (Sen-Jum)</option>
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Email Address</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Email Kantor</label>
                   <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={18} />
-                    <input 
-                      required type="email"
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
-                      placeholder="budi@kantor.com"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    />
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                    <input required type="email" className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none"
+                      placeholder="email@kantor.com" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
                   </div>
                 </div>
+
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Set Password</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-2">Password</label>
                   <div className="relative group">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-400 transition-colors" size={18} />
-                    <input 
-                      required 
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
-                      placeholder="Minimal 6 Karakter"
-                      value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                    <input required className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none"
+                      placeholder="Password" value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} />
                   </div>
                 </div>
-                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-8 rounded-3xl text-sm tracking-[0.2em] uppercase shadow-xl shadow-blue-900/40">
-                  Save Karyawan
+
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-8 rounded-3xl text-sm tracking-[0.2em] uppercase shadow-xl shadow-blue-900/40 transition-all active:scale-95">
+                  {formData.id ? "Update Changes" : "Save Personnel"}
                 </Button>
               </form>
             </CardContent>
