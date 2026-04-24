@@ -1,0 +1,23 @@
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+
+export function middleware(request: NextRequest) {
+  const role = request.cookies.get('user_role')?.value
+  const { pathname } = request.nextUrl
+
+  // Proteksi Admin
+  if (pathname.startsWith('/dashboard') && role !== 'ADMIN') {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  // Proteksi Karyawan
+  if (pathname.startsWith('/absensi') && role !== 'EMPLOYEE') {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: ['/dashboard/:path*', '/absensi/:path*'],
+}
